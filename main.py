@@ -1,9 +1,14 @@
+import os.path
 import tkinter as tk
+from os.path import exists
 from tkinter import filedialog, messagebox
 import librosa
 import numpy as np
 from scipy.spatial.distance import euclidean
 import warnings
+import pandas as pd
+import matplotlib.pyplot as plt
+
 
 warnings.filterwarnings("ignore", category=UserWarning)
 warnings.filterwarnings("ignore", category=FutureWarning)
@@ -19,6 +24,36 @@ def compare_voices(file1, file2):
     mfcc2 = extract_mfcc_mean(file2)
     distance = euclidean(mfcc1, mfcc2)
     return distance
+
+def chart_generation(file1, file2):
+    fig, axes = plt.subplots(2, 2, figsize=(12, 6))
+    files = [file1, file2]
+    titles = ["Plik 1", "Plik 2"]
+
+    for i, file in enumerate(files):
+        y, sr = librosa.load(file, sr=16000, mono=True)
+
+        # Wykres amplitudy (sygnał czasowy)
+        axes[0][i].plot(np.linspace(0, len(y)/sr, len(y)), y)
+        axes[0][i].set_title(f"{titles[i]} – Amplituda w czasie")
+        axes[0][i].set_xlabel("Czas (s)")
+        axes[0][i].set_ylabel("Amplituda")
+
+        # Wykres spektrogramu (częstotliwości)
+        S = librosa.stft(y)
+        S_db = librosa.amplitude_to_db(np.abs(S), ref=np.max)
+        img = librosa.display.specshow(S_db, sr=sr, x_axis='time', y_axis='hz', ax=axes[1][i])
+        axes[1][i].set_title(f"{titles[i]} – Spektrogram (Hz)")
+
+    plt.tight_layout()
+
+    if not os.path.exists('wykresy'):
+        os.mkdir('wykresy')
+
+    path = os.path.join("wykresy","wykres.pdf")
+    plt.savefig(path)
+
+    plt.show()
 
 class VoiceComparerApp:
     def __init__(self, root):
@@ -69,8 +104,11 @@ class VoiceComparerApp:
             else:
                 result += "To różni mówcy."
             self.result_label.config(text=result)
+            chart_generation(file1=self.file1, file2=self.file2)
         except Exception as e:
             messagebox.showerror("Błąd przetwarzania", str(e))
+
+
 
 if __name__ == "__main__":
     root = tk.Tk()
