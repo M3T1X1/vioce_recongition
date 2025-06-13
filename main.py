@@ -1,35 +1,78 @@
+import tkinter as tk
+from tkinter import filedialog, messagebox
 import librosa
 import numpy as np
 from scipy.spatial.distance import euclidean
+import warnings
+
+warnings.filterwarnings("ignore", category=UserWarning)
+warnings.filterwarnings("ignore", category=FutureWarning)
 
 def extract_mfcc_mean(audio_path, n_mfcc=13):
-    # Wczytaj plik audio (mono, sr=16000)
     y, sr = librosa.load(audio_path, sr=16000, mono=True)
-    # Wyodrębnij MFCC (domyślnie 13 współczynników)
     mfcc = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=n_mfcc)
-    # Uśrednij MFCC po osi czasowej (kolumny)
     mfcc_mean = np.mean(mfcc, axis=1)
     return mfcc_mean
 
 def compare_voices(file1, file2):
     mfcc1 = extract_mfcc_mean(file1)
     mfcc2 = extract_mfcc_mean(file2)
-    # Oblicz odległość euklidesową
     distance = euclidean(mfcc1, mfcc2)
     return distance
 
+class VoiceComparerApp:
+    def __init__(self, root):
+        self.root = root
+        self.root.geometry("400x300")
+        self.root.title("Porównywarka głosów")
+        self.file1 = None
+        self.file2 = None
+
+        self.label1 = tk.Label(root, text="Plik 1: (nie wybrano)")
+        self.label1.pack(pady=5)
+
+        self.btn1 = tk.Button(root, text="Wybierz plik 1", command=self.choose_file1)
+        self.btn1.pack(pady=5)
+
+        self.label2 = tk.Label(root, text="Plik 2: (nie wybrano)")
+        self.label2.pack(pady=5)
+
+        self.btn2 = tk.Button(root, text="Wybierz plik 2", command=self.choose_file2)
+        self.btn2.pack(pady=5)
+
+        self.compare_btn = tk.Button(root, text="Porównaj głosy", command=self.compare)
+        self.compare_btn.pack(pady=10)
+
+        self.result_label = tk.Label(root, text="", font=("Arial", 12, "bold"))
+        self.result_label.pack(pady=10)
+
+    def choose_file1(self):
+        self.file1 = filedialog.askopenfilename(filetypes=[("Pliki audio", "*.wav *.mp3 *.m4a")])
+        if self.file1:
+            self.label1.config(text=f"Plik 1: {self.file1.split('/')[-1]}")
+
+    def choose_file2(self):
+        self.file2 = filedialog.askopenfilename(filetypes=[("Pliki audio", "*.wav *.mp3 *.m4a")])
+        if self.file2:
+            self.label2.config(text=f"Plik 2: {self.file2.split('/')[-1]}")
+
+    def compare(self):
+        if not self.file1 or not self.file2:
+            messagebox.showwarning("Błąd", "Wybierz oba pliki audio.")
+            return
+        try:
+            dist = compare_voices(self.file1, self.file2)
+            threshold = 50  # Próg do dostosowania
+            result = f"Odległość MFCC: {dist:.2f}\n"
+            if dist < threshold:
+                result += "Głosy prawdopodobnie należą do tej samej osoby."
+            else:
+                result += "To różni mówcy."
+            self.result_label.config(text=result)
+        except Exception as e:
+            messagebox.showerror("Błąd przetwarzania", str(e))
+
 if __name__ == "__main__":
-    # Ścieżki do plików audio dwóch mówców (np. .wav)
-    file1 = "Nagranie.m4a"
-    file2 = "Nagranie (2).m4a"
-
-    # Wyodrębnij i porównaj głosy
-    dist = compare_voices(file1, file2)
-    print(f"Odległość euklidesowa MFCC między plikami: {dist:.2f}")
-
-    # Próg można ustalić eksperymentalnie – im mniejsza odległość, tym bardziej podobne głosy
-    threshold = 50  # Przykładowa wartość, do dostosowania
-    if dist < threshold:
-        print("Głosy prawdopodobnie należą do tej samej osoby.")
-    else:
-        print("To różni mówcy.")
+    root = tk.Tk()
+    app = VoiceComparerApp(root)
+    root.mainloop()
